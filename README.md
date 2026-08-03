@@ -1,6 +1,6 @@
-# 1Blu DDNS
+# 1Blu.de dDNS
 
-Small Python updater for 1Blu DNS records. It logs in to the 1Blu customer interface, reads the configured DNS records, checks the current public internet IP, and only writes DNS records when the configured record is outdated.
+Small Python updater for 1Blu.de DNS records. It logs in to the 1Blu.de customer interface, reads the configured DNS records, checks the current public internet IP, and only writes DNS records when the configured record is outdated.
 
 This repository is trimmed for running the updater directly inside a Proxmox LXC container with cron.
 
@@ -125,8 +125,8 @@ For the VS Code run configuration, copy the example env file first:
 cp 1blu-ddns.env.example 1blu-ddns.env
 ```
 
-Then edit `1blu-ddns.env` with real credentials and start `Run 1Blu DDNS` from the VS Code Run and Debug panel.
+Then edit `1blu-ddns.env` with real credentials and start `Run 1Blu.de dDNS` from the VS Code Run and Debug panel.
 
 ## Notes
 
-1Blu does not provide a public DDNS API. This updater uses the 1Blu customer interface session flow, including CSRF tokens and optional TOTP, then submits the full DNS record set back to the DNS editor endpoint.
+1Blu.de does not provide a public dDNS API. This updater uses the 1Blu.de customer interface session flow, including CSRF tokens and optional TOTP, then submits the full DNS record set back to the DNS editor endpoint.

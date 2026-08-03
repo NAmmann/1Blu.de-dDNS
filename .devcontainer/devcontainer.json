@@ -1,5 +1,5 @@
 {
-  "name": "1Blu DDNS",
+  "name": "1Blu.de dDNS",
   "build": {
     "dockerfile": "Containerfile",
     "context": ".."

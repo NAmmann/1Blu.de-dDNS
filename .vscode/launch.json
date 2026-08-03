@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run 1Blu DDNS",
+      "name": "Run 1Blu.de dDNS",
       "type": "debugpy",
       "request": "launch",
       "module": "app.main",

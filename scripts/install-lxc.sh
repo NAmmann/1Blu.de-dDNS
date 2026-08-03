@@ -45,7 +45,7 @@ chmod 644 "$CRON_FILE"
 
 systemctl enable --now cron >/dev/null 2>&1 || service cron start
 
-echo "Installed 1Blu DDNS to $APP_DIR."
+echo "Installed 1Blu.de dDNS to $APP_DIR."
 echo "Configuration: $ENV_FILE"
 echo "Cron: $CRON_FILE"
 echo "Log: /var/log/1blu-ddns.log"
