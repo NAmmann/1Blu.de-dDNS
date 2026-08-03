@@ -1,4 +1,6 @@
-/.vscode
 **/__pycache__
 .venv/
 .pytest_cache/
+1blu-ddns.env
+/.vscode/*
+!/.vscode/launch.json

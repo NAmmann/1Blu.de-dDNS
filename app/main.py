@@ -4,9 +4,7 @@ import os
 from dns import resolver
 from . import api
 import sys
-import time
 import re
-import argparse
 
 logging_level = {"INFO": logging.INFO, "WARNING": logging.WARNING, "ERROR" : logging.ERROR, "DEBUG" : logging.DEBUG}
 
@@ -34,7 +32,6 @@ def get_envs() -> dict:
     env["rrtype"] = get_env_opt("RRTYPE", "A")
     env["domain"] = get_env_req("DOMAIN", "Please define DOMAIN. Exiting...")
     env["subdomain"] = get_env_opt("SUBDOMAIN", "")
-    env["interval"] = get_env_opt("INTERVAL", "180")
     env["logging_level"] = get_env_opt("LOGGING_LEVEL", get_env_opt("LOGGING", "INFO"))
     env["contract"] = get_env_req("CONTRACT", "Please define CONTRACT. Exiting...")
     return env
@@ -45,10 +42,6 @@ def validate_env(env: dict):
         logging.error("RRTYPE must be either 'A' or 'AAAA'. Exiting...")
         exit(1)
     
-    if(not env["interval"].isnumeric()):
-        logging.error("INTERVAL must be a number. Exiting..^.")
-        exit(1)
-
     if( env["logging_level"] not in logging_level.keys()):
         logging.error("LOGGING must be one of 'INFO', 'WARNING', 'ERROR' or 'DEBUG'. Exiting...")
         exit(1)
@@ -111,24 +104,12 @@ def check_for_updates(domain: str, subdomain: str, rrtype: str, api : api.Api):
 
 def main():
     """Main funcition."""
-    parser = argparse.ArgumentParser(description="Update 1Blu DNS records when the public IP changes.")
-    parser.add_argument("--once", action="store_true", help="run one check/update cycle and exit")
-    args = parser.parse_args()
-
     env = get_envs()
     validate_env(env)
     logging.basicConfig(stream=sys.stdout,level=logging_level[env["logging_level"]],format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     logging.info("Starting...")
     a = api.Api(username=env["username"],password=env["password"],otp_key=env["otp_key"],domain_number=env["domain_number"],contract=env["contract"])
-
-    if args.once:
-        check_for_updates(env["domain"], env["subdomain"], env["rrtype"], a)
-        return
-
-    interval : int = int(env["interval"])
-    while True:
-        check_for_updates(env["domain"], env["subdomain"], env["rrtype"], a)
-        time.sleep(60 * interval)
+    check_for_updates(env["domain"], env["subdomain"], env["rrtype"], a)
 
 if __name__ == "__main__":
     main()

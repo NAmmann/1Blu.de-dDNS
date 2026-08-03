@@ -39,7 +39,7 @@ cat > "$CRON_FILE" <<EOF
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-* * * * * $SERVICE_USER set -a; . $ENV_FILE; set +a; cd $APP_DIR && $APP_DIR/.venv/bin/python -m app.main --once >> /var/log/1blu-ddns.log 2>&1
+* * * * * $SERVICE_USER set -a; . $ENV_FILE; set +a; cd $APP_DIR && $APP_DIR/.venv/bin/python -m app.main >> /var/log/1blu-ddns.log 2>&1
 EOF
 chmod 644 "$CRON_FILE"
 

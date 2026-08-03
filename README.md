@@ -12,7 +12,7 @@ This repository is trimmed for running the updater directly inside a Proxmox LXC
 - Supports the base domain and multiple subdomains.
 - Supports `A` and `AAAA` records.
 - Supports 1Blu accounts with optional TOTP/OTP two-factor authentication.
-- Provides `--once` mode for cron jobs.
+- Runs one check/update cycle and exits, which is suitable for cron.
 
 ## Proxmox LXC setup
 
@@ -36,7 +36,7 @@ The installer:
 - installs Python dependencies
 - creates `/etc/1blu-ddns.env` from `1blu-ddns.env.example` if it does not exist
 - links the updater into cron via `/etc/cron.d/1blu-ddns`
-- runs the updater every minute with `python -m app.main --once`
+- runs the updater every minute with `python -m app.main`
 - writes logs to `/var/log/1blu-ddns.log`
 
 After installation, edit the config:
@@ -52,7 +52,7 @@ set -a
 . /etc/1blu-ddns.env
 set +a
 cd /opt/1blu-ddns
-/opt/1blu-ddns/.venv/bin/python -m app.main --once
+/opt/1blu-ddns/.venv/bin/python -m app.main
 ```
 
 Cron will run the same check every minute. If the DNS record already matches the current public IP, no DNS update is sent to 1Blu.
@@ -71,7 +71,6 @@ Configuration is read from environment variables. The LXC installer stores them 
 | `OTP_KEY` | no | TOTP setup secret for accounts with 2FA enabled. This is the setup secret, not a current one-time code. |
 | `SUBDOMAIN` | no | Comma-separated hostnames to update. Defaults to `@` for the base domain. |
 | `RRTYPE` | no | Default record type: `A` for IPv4 or `AAAA` for IPv6. Defaults to `A`. |
-| `INTERVAL` | no | Loop interval in minutes when running without `--once`. Cron mode ignores this. Defaults to `180`. |
 | `LOGGING_LEVEL` | no | `INFO`, `WARNING`, `ERROR`, or `DEBUG`. Defaults to `INFO`. |
 
 `SUBDOMAIN` examples:
@@ -104,26 +103,36 @@ Run one check/update cycle:
 set -a
 . ./1blu-ddns.env.example
 set +a
-python -m app.main --once
-```
-
-Run continuously:
-
-```sh
-set -a
-. ./1blu-ddns.env.example
-set +a
 python -m app.main
 ```
 
-In continuous mode the updater sleeps for `INTERVAL` minutes between checks.
+## VS Code dev container with Podman
+
+The repository includes a VS Code dev container definition in `.devcontainer/`.
+
+To use it with Podman:
+
+1. Install Podman.
+2. Install the VS Code Dev Containers extension.
+3. Configure VS Code Dev Containers to use Podman instead of Docker, for example by setting `dev.containers.dockerPath` to `podman`.
+4. Run `Dev Containers: Reopen in Container`.
+
+The dev container builds from `.devcontainer/Containerfile`, creates a Python virtual environment, and installs `requirements.txt`.
+
+For the VS Code run configuration, copy the example env file first:
+
+```sh
+cp 1blu-ddns.env.example 1blu-ddns.env
+```
+
+Then edit `1blu-ddns.env` with real credentials and start `Run 1Blu DDNS` from the VS Code Run and Debug panel.
 
 ## Development
 
 Run tests:
 
 ```sh
-python -m pytest
+python -m unittest
 ```
 
 ## Notes

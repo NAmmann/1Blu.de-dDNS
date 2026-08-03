@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run 1Blu DDNS",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "app.main",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/1blu-ddns.env",
+      "console": "integratedTerminal"
+    }
+  ]
+}
