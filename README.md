@@ -127,14 +127,6 @@ cp 1blu-ddns.env.example 1blu-ddns.env
 
 Then edit `1blu-ddns.env` with real credentials and start `Run 1Blu DDNS` from the VS Code Run and Debug panel.
 
-## Development
-
-Run tests:
-
-```sh
-python -m unittest
-```
-
 ## Notes
 
 1Blu does not provide a public DDNS API. This updater uses the 1Blu customer interface session flow, including CSRF tokens and optional TOTP, then submits the full DNS record set back to the DNS editor endpoint.
