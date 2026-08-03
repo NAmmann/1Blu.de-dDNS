@@ -1,173 +1,131 @@
 # 1Blu DDNS
 
-This python script is used to dynamicly update the dns-records for the 1Blu nameservers so, that a server is always accessible even if its ip-address gets changed. Different to most other providers 1Blu sadly has no api for this purpose. Nevertheless it is possible to achieve this service by navigating through the menus like a human would. 
+Small Python updater for 1Blu DNS records. It logs in to the 1Blu customer interface, reads the configured DNS records, checks the current public internet IP, and only writes DNS records when the configured record is outdated.
 
-## Gettings Started
+This repository is trimmed for running the updater directly inside a Proxmox LXC container with cron.
 
-> [!NOTE] 
-> It is highly recommended to run this script inside a Docker container. This guarantees the best protection against any potential attacks.
+## What it does
 
-### Docker:
+- Checks the current public IPv4 or IPv6 address via `ident.me`.
+- Resolves the configured DNS record.
+- Updates 1Blu only when the public IP and DNS record differ.
+- Supports the base domain and multiple subdomains.
+- Supports `A` and `AAAA` records.
+- Supports 1Blu accounts with optional TOTP/OTP two-factor authentication.
+- Provides `--once` mode for cron jobs.
 
-To run this service as a Docker container, simply run the following command. Be sure to set the environment variables correctly.
-```
-docker run -it -d \
-      -e USERNAME=1234567 \
-      -e PASSWORD=password \
-      -e DOMAIN_NUMBER=123456 \
-      -e OTP_KEY=ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ \
-      -e DOMAIN=example.de \
-      -e LOGGING=INFO \
-      -e CONTRACT=123123 \
-      --name=1blu-ddns \
-    jonasvoigt/1blu-ddns:latest
-```
-### Docker Compose:
-To run this service with Docker Compose, copy the following text into a docker-compose.yml. Be sure to set the environment variables correctly.
+## Proxmox LXC setup
 
-```
-version: '3'
-services:
-  blu-ddns:
-    image: jonasvoigt/1blu-ddns:latest
-    restart: always
-    environment:
-      - USERNAME=1234567
-      - PASSWORD=password
-      - DOMAIN_NUMBER=123456
-      - OTP_KEY=ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ
-      - DOMAIN=example.de
-      - LOGGING=INFO
-      - CONTRACT=123123
+Use a Debian or Ubuntu LXC container with internet access.
+
+Inside the container:
+
+```sh
+apt-get update
+apt-get install -y git
+git clone <this-repo-url> /tmp/1blu-ddns
+cd /tmp/1blu-ddns
+chmod +x scripts/install-lxc.sh
+./scripts/install-lxc.sh
 ```
 
-### Linux
-If you want to run the service on Linux without Docker, you can do that as follows:
+The installer:
 
-1. Download the source code of the latest release or simply clone this repository.
-2. Extract the source code into any directory of your choice
-3. Install Python version 3.11 (newer versions should also work) 
-4. Open the terminal in the 1BluDDns folder
-5. Install dependencies:\
-   <code>pip install -r requirements.txt</code>
-6. Set environemnt variables: \
-   e.g. <code>DOMAIN_NUMBER=123456</code>
-7. Run script: \
-   <code>python3 -m app.main</code>
+- copies the repository to `/opt/1blu-ddns`
+- creates `/opt/1blu-ddns/.venv`
+- installs Python dependencies
+- creates `/etc/1blu-ddns.env` from `1blu-ddns.env.example` if it does not exist
+- links the updater into cron via `/etc/cron.d/1blu-ddns`
+- runs the updater every minute with `python -m app.main --once`
+- writes logs to `/var/log/1blu-ddns.log`
 
-### Windows
-If you want to run the service on Windows without Docker, you can do that as follows:
+After installation, edit the config:
 
-1. Download the source code of the latest release or simply clone this repository.
-2. Extract the source code into any directory of your choice
-3. Install Python version 3.11 (newer versions should also work) 
-4. Open command prompt in the 1BluDDns folder
-5. Install dependencies:\
-   <code>pip install -r requirements.txt</code>
-6. Set environemnt variables: \
-   e.g. <code>set DOMAIN_NUMBER=123456</code>
-7. Run script: \
-   <code>python3 -m app.main</code>
-   
-> [!NOTE] 
-> The DDns only works as long as the script runs. Additinally, all environment variables need to be set everytime the terminal is restarted. The script is not automatically rerun when the computer is rebooted.
-
-## Environment Variables
-
-<code>USERNAME</code> Your 1Blu username
-
-<code>PASSWORD</code> Your 1Blu password
-
-<code>OTP_KEY</code> (optional) Your 1Blu OTP key. If you don't have 2-factor authentification activated on your account, this variable can be ignored. Note: this is not the key that is used to log into your account. The code can be found when setting up the otp.
-
-![where to find the otp-key](img/otp_key_edited.png)
-
-<code>CONTRACT</code> The Contract Number of your 1Blu account. It can be found at https://ksb.1blu.de/products/ under Vertrags-No.
-
-<code>DOMAIN_NUMBER</code> The domain number. To retrieve this, navigate to the dns editor. Now the domain number can be found in the url: ksb.1blu.de/\<contract-number\>/domain/\<domain-number\>/dns/ 
-
-<code>DOMAIN</code> The domain without the subdomain. For example: "example.de" 
-
-<code>SUBDOMAIN</code> (optional) The subdomain(s) that should be updated. If omitted, only the base domain will be updated. Multiple subdomains can be defined as a comma-seperated list. When using such comma-seperated list, use the base domain is indicated by the `@` symbol. By default, the rrtype defined by the RRTYPE environment variable is updated for all subdomains. Optionally, a different rrtype can be set per subdomain by appending it in curly braces. 
-
-> [!IMPORTANT]
-> Do not include any spaces in the SUBDOMAIN definition
-
-Example:
+```sh
+nano /etc/1blu-ddns.env
 ```
+
+Then test one update cycle manually:
+
+```sh
+set -a
+. /etc/1blu-ddns.env
+set +a
+cd /opt/1blu-ddns
+/opt/1blu-ddns/.venv/bin/python -m app.main --once
+```
+
+Cron will run the same check every minute. If the DNS record already matches the current public IP, no DNS update is sent to 1Blu.
+
+## Configuration
+
+Configuration is read from environment variables. The LXC installer stores them in `/etc/1blu-ddns.env`.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `USERNAME` | yes | 1Blu username. |
+| `PASSWORD` | yes | 1Blu password. |
+| `CONTRACT` | yes | 1Blu contract number from the customer portal. |
+| `DOMAIN_NUMBER` | yes | Domain number from the DNS editor URL: `ksb.1blu.de/<contract>/domain/<domain-number>/dns/`. |
+| `DOMAIN` | yes | Base domain, for example `example.de`. |
+| `OTP_KEY` | no | TOTP setup secret for accounts with 2FA enabled. This is the setup secret, not a current one-time code. |
+| `SUBDOMAIN` | no | Comma-separated hostnames to update. Defaults to `@` for the base domain. |
+| `RRTYPE` | no | Default record type: `A` for IPv4 or `AAAA` for IPv6. Defaults to `A`. |
+| `INTERVAL` | no | Loop interval in minutes when running without `--once`. Cron mode ignores this. Defaults to `180`. |
+| `LOGGING_LEVEL` | no | `INFO`, `WARNING`, `ERROR`, or `DEBUG`. Defaults to `INFO`. |
+
+`SUBDOMAIN` examples:
+
+```sh
+# Update the base domain A record.
+SUBDOMAIN=@
+RRTYPE=A
+
+# Update cloud.example.de as A, home.example.de as AAAA, and example.de as A.
 SUBDOMAIN=cloud,home{AAAA},@{A}
+RRTYPE=A
 ```
 
-In this example, the following DNS entries are updated
+Do not include spaces in `SUBDOMAIN`.
 
-|subdomain| rrtype|
-|-|-|
-|cloud| same as RRTYPE|
-|home| AAAA|
-|@ (base domain)| A|
+## Manual usage without cron
 
+Install dependencies:
 
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+```
 
+Run one check/update cycle:
 
+```sh
+set -a
+. ./1blu-ddns.env.example
+set +a
+python -m app.main --once
+```
 
-<code>RRTYPE</code> (optional) The default rrtype used for all subdomains. Can be either A (default) for ipv4 or AAAA for ipv6.
+Run continuously:
 
+```sh
+set -a
+. ./1blu-ddns.env.example
+set +a
+python -m app.main
+```
 
-<code>INTERVAL</code> (optional) The interval between update tries in minutes. Defaults to 180. 
+In continuous mode the updater sleeps for `INTERVAL` minutes between checks.
 
-<code>LOGGING_LEVEL</code> (optional) The logging level. Can be one of the following:
-- INFO (default): info, warnings and errors will be logged.
-- WARNING: warnings and errors will be logged.
-- ERROR: only errors will be logged
-- DEBUG: info, warning, errors and debug messages will be logged.
+## Development
 
+Run tests:
 
-## How this script works
+```sh
+python -m pytest
+```
 
-### Sessions:
-1Blu uses sessions to verify that a request is allowed. Each session has a unique session-id. After logging it is possible with the session-id to make any change to the account, including changing the dns records. These sessions are only valid for a certain amount of time. This means that the script needs to be able to create new sessions and log in by itself.
+## Notes
 
-### Creating sessions:
-Creating a new session is not hard. When a request to the login page (https://ksb.1blu.de) is send, the server will return a new session id. This session-id is stored in the cookies as <code>PHPSESSID</code>. The cookies are included in the following requests. 
-
-### Logging in:
-After creating a new session, the script needs to log in so, that it can make changes to the dns-records. This is done by first sending a POST request to https://ksb.1blu.de with the following payload:
-
-<code> _username=\<username\>&_password=\<password\>&_csrf_token=\<csrf-token\></code>
-
-The csrf-token is retrieved by sending a GET request to https://ksb.1blu.de where it can be found in a hidden input field in the html-form on the page.
-
-If 2fa is enabled, the next step is to generate a otp and send it with a POST request to https://ksb.1blu.de/2fa_check/. The request has the following payload:
-
-<code> _auth_code=\<otp\>&_csrf_token=\<csrf-token\> </code>
-
-This request also needs a csrf-token, which can be found at https://ksb.1blu.de/2fa/.
-
-Finally, the script validates, if the login was successful by checking if the start-page is accessible. 
-
-### Retrieving the dns records:
-The dns records are included in the page https://ksb.1blu.de/CONTRACT-NUMBER/domain/DOMAIN-NUMBER/dns/ encoded as json. 
-
-<code>[{"id": 0,"hostname": "@","type": "A","target": "123.123.123.123"},
-{"id": 1,"hostname": "www","type": "A","target": "123.456.789.10"},
-{"id": 2,"hostname": "mail","type": "A","target": "123.123.234.234"},
-{"id": 3,"hostname": "@","type": "MX","target": "mail.example.de","prio": "10"},
-{"id": 4,"hostname": "example.de","type": "TXT","target": "text"},
-{"id": 5,"hostname": "abc","type": "A","target": "78.78.78.80"}]
-</code>
-
-They are retrieved by the script and the stored as a list of dictionaries.
-
-### Updating the dns records:
-The dns records can be updated by sending a POST request to https://ksb.1blu.de/CONTRACT-NUMBER/domain/DOMAIN-NUMBER/dns/setdnsrecords/. The payload of the request does not only need to include the changed records but also all the unchanged ones too. 
-
-<code> records[0][id]=0&records[0][hostname]=@&records[0][type]=A&records[0][target]=123.123.123.123&
-records[1][id]=1&records[1][hostname]=www&records[1][type]=A&records[1][target]=123.456.789.10&
-records[2][id]=2&records[2][hostname]=mail&records[2][type]=A&records[2][target]=123.123.234.234&
-records[3][id]=3&records[3][hostname]=@&records[3][type]=MX&records[3][target]=mail.example.de&records[3][prio]=10
-&records[4][id]=4&records[4][hostname]=example.de&records[4][type]=TXT&
-records[4][target]=text&records[5][id]=5&records[5][hostname]=abc&records[5][type]=A&records[5][target]=78.78.78.80'</code>
-
-
-### Checking if the dns records need to be updated:
-After a defined Interval the script first checks, if the records need to be updated, by comparing its own ip-address with the one of the domain. The servers ip-address is retrieved by sending a request to https://v4.ident.me or https://v6.ident.me. For retrieving the domains ip-address the python library <code>dnspython</code> is used. If the ip-addresses are different the dns-records are updated as described above. 
+1Blu does not provide a public DDNS API. This updater uses the 1Blu customer interface session flow, including CSRF tokens and optional TOTP, then submits the full DNS record set back to the DNS editor endpoint.

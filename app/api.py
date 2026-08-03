@@ -1,5 +1,4 @@
 import re
-import requests
 import logging
 from . import dns_records
 from . import session
@@ -78,8 +77,8 @@ class Api:
             logging.error("Updating address failed: No dns records found.")
             return False
 
-        hostname = subdomain if subdomain != "" else "@"
-        logging.debug("Updating record: '{hostname}' [{rrtype}] to new address: '{new_target}'.")
+        hostname = subdomain if subdomain not in ["", "@"] else "@"
+        logging.debug(f"Updating record: '{hostname}' [{rrtype}] to new address: '{new_target}'.")
         num_updated = 0
         for record in self._records:
             if(record["hostname"] != hostname):
@@ -91,9 +90,12 @@ class Api:
             record["modified"] = "1"
             num_updated += 1
         logging.info(f"{num_updated} records updated.")
+        if(num_updated == 0):
+            logging.error(f"Updating address failed: No matching DNS record found for '{hostname}' [{rrtype}].")
+            return False
 
         if(not self.push_records()):
             logging.error("Updating address failed: Pushing records failed.")
+            return False
 
         return True
-

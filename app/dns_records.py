@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 import json
-import logging
+from urllib.parse import urlencode
 
 
 
@@ -13,11 +13,8 @@ def from_json(input : str) -> List[Dict]:
 
 def to_form_url_encoded(records : List[Dict]) -> str:
     """Converts dns-records to 'form url-encoded'. This format is used to update the dns-records on 1blu."""
-    output : str = ""
+    params = []
     for record in records:
         for key in record.keys():
-            if(output != ""): 
-                output += "&"
-            output += f"records[{record['id']}][{key}]={record[key]}"
-    return output
-
+            params.append((f"records[{record['id']}][{key}]", record[key]))
+    return urlencode(params)

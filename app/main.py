@@ -6,6 +6,7 @@ from . import api
 import sys
 import time
 import re
+import argparse
 
 logging_level = {"INFO": logging.INFO, "WARNING": logging.WARNING, "ERROR" : logging.ERROR, "DEBUG" : logging.DEBUG}
 
@@ -34,7 +35,7 @@ def get_envs() -> dict:
     env["domain"] = get_env_req("DOMAIN", "Please define DOMAIN. Exiting...")
     env["subdomain"] = get_env_opt("SUBDOMAIN", "")
     env["interval"] = get_env_opt("INTERVAL", "180")
-    env["logging_level"] = get_env_opt("LOGGING", "INFO")
+    env["logging_level"] = get_env_opt("LOGGING_LEVEL", get_env_opt("LOGGING", "INFO"))
     env["contract"] = get_env_req("CONTRACT", "Please define CONTRACT. Exiting...")
     return env
 
@@ -57,13 +58,15 @@ def validate_env(env: dict):
 
 def get_my_public_ip(v6 : bool) -> str:
     """Retrievs own ip address"""
-    response = requests.get(f"https://{'v6' if v6 else 'v4'}.ident.me")
-    logging.debug(f"My ip address is: '{response.text}'")
-    return response.text
+    response = requests.get(f"https://{'v6' if v6 else 'v4'}.ident.me", timeout=30)
+    response.raise_for_status()
+    ip = response.text.strip()
+    logging.debug(f"My ip address is: '{ip}'")
+    return ip
 
 def get_remote_ip(domain: str, subdomain: str, rrtype: str) -> str:
     """Retrievs the ip address of the domain"""
-    qname = f"{subdomain}.{domain}" if subdomain != "" else domain
+    qname = f"{subdomain}.{domain}" if subdomain not in ["", "@"] else domain
     res = resolver.resolve(qname=qname,rdtype=rrtype)
     logging.debug(f"Remote ip address is: '{res[0].to_text()}'")
     return res[0].to_text()
@@ -108,11 +111,19 @@ def check_for_updates(domain: str, subdomain: str, rrtype: str, api : api.Api):
 
 def main():
     """Main funcition."""
+    parser = argparse.ArgumentParser(description="Update 1Blu DNS records when the public IP changes.")
+    parser.add_argument("--once", action="store_true", help="run one check/update cycle and exit")
+    args = parser.parse_args()
+
     env = get_envs()
+    validate_env(env)
     logging.basicConfig(stream=sys.stdout,level=logging_level[env["logging_level"]],format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     logging.info("Starting...")
-    validate_env(env)
     a = api.Api(username=env["username"],password=env["password"],otp_key=env["otp_key"],domain_number=env["domain_number"],contract=env["contract"])
+
+    if args.once:
+        check_for_updates(env["domain"], env["subdomain"], env["rrtype"], a)
+        return
 
     interval : int = int(env["interval"])
     while True:
