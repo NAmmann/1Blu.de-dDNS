@@ -2,7 +2,7 @@
 
 Small Python updater for 1Blu.de DNS records. It logs in to the 1Blu.de customer interface, reads the configured DNS records, checks the current public internet IP, and only writes DNS records when the configured record is outdated.
 
-This repository is trimmed for running the updater directly inside a Proxmox LXC container with cron.
+This repository is trimmed for running the updater directly inside a Proxmox LXC container with a systemd timer.
 
 ## What it does
 
@@ -12,7 +12,7 @@ This repository is trimmed for running the updater directly inside a Proxmox LXC
 - Supports the base domain and multiple subdomains.
 - Supports `A` and `AAAA` records.
 - Supports 1Blu accounts with optional TOTP/OTP two-factor authentication.
-- Runs one check/update cycle and exits, which is suitable for cron.
+- Runs one check/update cycle and exits, which is suitable for systemd timers.
 
 ## Proxmox LXC setup
 
@@ -29,15 +29,18 @@ chmod +x scripts/install-lxc.sh
 ./scripts/install-lxc.sh
 ```
 
+The installer follows the relevant Proxmox VE Helper-Scripts container-side practices: it validates the container environment, checks network/DNS before installing, uses structured status output, installs a systemd service and timer, adds a small update helper, writes a login MOTD, and cleans package caches after installation.
+
 The installer:
 
 - copies the repository to `/opt/1blu-ddns`
 - creates `/opt/1blu-ddns/.venv`
 - installs Python dependencies
 - creates `/etc/1blu-ddns.env` from `1blu-ddns.env.example` if it does not exist
-- links the updater into cron via `/etc/cron.d/1blu-ddns`
+- installs `1blu-ddns.service`
+- installs and starts `1blu-ddns.timer`
 - runs the updater every minute with `python -m app.main`
-- writes logs to `/var/log/1blu-ddns.log`
+- writes logs to the systemd journal
 
 After installation, edit the config:
 
@@ -55,7 +58,15 @@ cd /opt/1blu-ddns
 /opt/1blu-ddns/.venv/bin/python -m app.main
 ```
 
-Cron will run the same check every minute. If the DNS record already matches the current public IP, no DNS update is sent to 1Blu.
+The timer will run the same check every minute. If the DNS record already matches the current public IP, no DNS update is sent to 1Blu.de.
+
+Useful commands inside the LXC container:
+
+```sh
+systemctl status 1blu-ddns.timer
+journalctl -u 1blu-ddns.service -n 50
+/usr/local/bin/update-1blu-ddns
+```
 
 ## Configuration
 
@@ -87,7 +98,7 @@ RRTYPE=A
 
 Do not include spaces in `SUBDOMAIN`.
 
-## Manual usage without cron
+## Manual usage without systemd timer
 
 Install dependencies:
 
